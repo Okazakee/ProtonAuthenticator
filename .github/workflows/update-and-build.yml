@@ -5,6 +5,10 @@ on:
     - cron: '0 6 * * 1'  # Every Monday at 06:00 UTC
   workflow_dispatch:
     inputs:
+      force_build:
+        description: 'Build the current manifest version without checking for updates.'
+        type: boolean
+        default: false
       force_version:
         description: 'Force a specific version (e.g. 1.1.5-1). Leave empty for auto-detect.'
         required: false
@@ -34,10 +38,28 @@ jobs:
       - name: Detect latest version
         id: detect
         run: |
-          FORCE="${{ github.event.inputs.force_version }}"
+          MANIFEST=io.github.Okazakee.ProtonAuthenticator.yml
+          FORCE_BUILD="${{ github.event.inputs.force_build }}"
+          FORCE_VERSION="${{ github.event.inputs.force_version }}"
 
-          if [ -n "$FORCE" ]; then
-            VERSION="$FORCE"
+          # ── force_build: skip version check, build whatever is in the manifest ──
+          if [ "$FORCE_BUILD" = "true" ]; then
+            VERSION=$(grep -oP '(?<=ProtonAuthenticator-)[\d.]+-\d+(?=\.x86_64\.rpm)' "$MANIFEST" | head -1)
+            URL=$(grep -oP '(?<=url: )https://proton\.me/download/authenticator/linux/[^\s]+' "$MANIFEST" | head -1)
+            SHA256=$(grep -oP '(?<=sha256: )[a-f0-9]{64}' "$MANIFEST" | head -1)
+            SIZE=$(grep -oP '(?<=size: )[0-9]+' "$MANIFEST" | head -1)
+            echo "Force build: using manifest version $VERSION"
+            echo "new_version=true"  >> "$GITHUB_OUTPUT"
+            echo "version=$VERSION"  >> "$GITHUB_OUTPUT"
+            echo "url=$URL"         >> "$GITHUB_OUTPUT"
+            echo "sha256=$SHA256"   >> "$GITHUB_OUTPUT"
+            echo "size=$SIZE"       >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # ── normal path: detect upstream version ──────────────────────────────
+          if [ -n "$FORCE_VERSION" ]; then
+            VERSION="$FORCE_VERSION"
             URL="https://proton.me/download/authenticator/linux/ProtonAuthenticator-${VERSION}.x86_64.rpm"
           else
             eval "$(python3 scripts/check-version.py)"
@@ -47,12 +69,11 @@ jobs:
             fi
           fi
 
-          CURRENT=$(grep -oP '(?<=ProtonAuthenticator-)[\d.]+-\d+(?=\.x86_64\.rpm)' \
-                    io.github.Okazakee.ProtonAuthenticator.yml | head -1)
+          CURRENT=$(grep -oP '(?<=ProtonAuthenticator-)[\d.]+-\d+(?=\.x86_64\.rpm)' "$MANIFEST" | head -1)
           echo "Latest:  $VERSION"
           echo "Current: $CURRENT"
 
-          if [ "$VERSION" = "$CURRENT" ] && [ -z "$FORCE" ]; then
+          if [ "$VERSION" = "$CURRENT" ] && [ -z "$FORCE_VERSION" ]; then
             echo "Already up to date."
             echo "new_version=false" >> "$GITHUB_OUTPUT"
           else
@@ -109,6 +130,7 @@ jobs:
           retention-days: 90
 
       - name: Commit manifest and metainfo updates
+        if: github.event.inputs.force_build != 'true'
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
