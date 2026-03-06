@@ -48,7 +48,7 @@ jobs:
           fi
 
           CURRENT=$(grep -oP '(?<=ProtonAuthenticator-)[\d.]+-\d+(?=\.x86_64\.rpm)' \
-                    me.proton.Authenticator.yml | head -1)
+                    io.github.Okazakee.ProtonAuthenticator.yml | head -1)
           echo "Latest:  $VERSION"
           echo "Current: $CURRENT"
 
@@ -85,20 +85,20 @@ jobs:
           SIZE:    ${{ needs.check.outputs.size }}
         run: |
           sed -i "s|url: https://proton\.me/download/authenticator/linux/.*\.rpm|url: ${URL}|" \
-            me.proton.Authenticator.yml
+            io.github.Okazakee.ProtonAuthenticator.yml
           sed -i "s|sha256: [a-f0-9]\{64\}|sha256: ${SHA256}|" \
-            me.proton.Authenticator.yml
+            io.github.Okazakee.ProtonAuthenticator.yml
           sed -i "s|size: [0-9]\+|size: ${SIZE}|" \
-            me.proton.Authenticator.yml
+            io.github.Okazakee.ProtonAuthenticator.yml
           TODAY=$(date -u +%Y-%m-%d)
           sed -i "s|<release version=\"[^\"]*\" date=\"[^\"]*\">|<release version=\"${VERSION%-*}\" date=\"${TODAY}\">|" \
-            me.proton.Authenticator.metainfo.xml
+            io.github.Okazakee.ProtonAuthenticator.metainfo.xml
 
       - name: Build Flatpak bundle
         uses: flatpak/flatpak-github-actions/flatpak-builder@v6
         with:
           bundle: ProtonAuthenticator-${{ needs.check.outputs.version }}.flatpak
-          manifest-path: me.proton.Authenticator.yml
+          manifest-path: io.github.Okazakee.ProtonAuthenticator.yml
           cache-key: flatpak-builder-${{ github.sha }}
 
       - name: Upload bundle as artifact
@@ -112,6 +112,6 @@ jobs:
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add me.proton.Authenticator.yml me.proton.Authenticator.metainfo.xml
+          git add io.github.Okazakee.ProtonAuthenticator.yml io.github.Okazakee.ProtonAuthenticator.metainfo.xml
           git commit -m "chore: update to Proton Authenticator ${{ needs.check.outputs.version }} [skip ci]"
           git push

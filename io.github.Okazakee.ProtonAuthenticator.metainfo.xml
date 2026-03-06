@@ -1,13 +1,21 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <component type="desktop-application">
-  <id>me.proton.Authenticator</id>
+  <id>io.github.Okazakee.ProtonAuthenticator</id>
   <metadata_license>CC0-1.0</metadata_license>
   <project_license>LicenseRef-proprietary</project_license>
 
   <name>Proton Authenticator</name>
   <summary>Two-factor authentication app by Proton</summary>
 
+  <developer id="me.proton">
+    <name>Proton AG</name>
+  </developer>
+
   <description>
+    <p>
+      This is a community package of Proton Authenticator and not officially
+      supported by Proton AG.
+    </p>
     <p>
       Proton Authenticator is a two-factor authentication (2FA) app that works
       with any service supporting the TOTP or HOTP standards. It integrates with
@@ -26,8 +34,9 @@
   <url type="homepage">https://proton.me/authenticator</url>
   <url type="help">https://proton.me/support/authenticator-app</url>
   <url type="bugtracker">https://github.com/ProtonMail/WebClients/issues</url>
+  <url type="vcs-browser">https://github.com/Okazakee/proton-authenticator-flatpak</url>
 
-  <launchable type="desktop-id">me.proton.Authenticator.desktop</launchable>
+  <launchable type="desktop-id">io.github.Okazakee.ProtonAuthenticator.desktop</launchable>
 
   <categories>
     <category>Utility</category>
@@ -45,6 +54,17 @@
   <provides>
     <binary>proton-authenticator</binary>
   </provides>
+
+  <screenshots>
+    <screenshot type="default">
+      <caption>Proton Authenticator on multiple devices</caption>
+      <image type="source" width="776" height="717">https://pmecdn.protonweb.com/image-transformation/?s=s&amp;image=all_devices_mobile_6ba7190a4d.png&amp;width=776&amp;height=717</image>
+    </screenshot>
+    <screenshot>
+      <caption>Download and set up Proton Authenticator</caption>
+      <image type="source" width="388" height="251">https://pmecdn.protonweb.com/image-transformation/?s=s&amp;image=Proton_authenticator_Download_mob_c677b14e7c.png&amp;width=388&amp;height=251</image>
+    </screenshot>
+  </screenshots>
 
   <!-- OARS: no user-generated content, no adult content -->
   <content_rating type="oars-1.1"/>
