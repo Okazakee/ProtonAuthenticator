@@ -4,10 +4,6 @@ runtime-version: '48'
 sdk: org.gnome.Sdk
 command: proton-authenticator
 
-# Proprietary x86_64-only binary
-only-arches:
-  - x86_64
-
 finish-args:
   - --share=network
   - --share=ipc
@@ -58,15 +54,15 @@ modules:
 
       - type: file
         path: icons/32x32.png
-        dest-filename: icons/32x32.png
+        dest: icons
 
       - type: file
         path: icons/128x128.png
-        dest-filename: icons/128x128.png
+        dest: icons
 
       - type: file
         path: icons/256x256.png
-        dest-filename: icons/256x256.png
+        dest: icons
 
       # The binary is NOT bundled — it is downloaded by the end-user's Flatpak
       # client at install time and verified against the sha256 + size below.

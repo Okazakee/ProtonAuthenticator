@@ -32,7 +32,7 @@
   </description>
 
   <url type="homepage">https://proton.me/authenticator</url>
-  <url type="help">https://proton.me/support/authenticator-app</url>
+  <url type="help">https://proton.me/support/authenticator</url>
   <url type="bugtracker">https://github.com/ProtonMail/WebClients/issues</url>
   <url type="vcs-browser">https://github.com/Okazakee/proton-authenticator-flatpak</url>
 
