@@ -22,6 +22,7 @@ jobs:
       version:     ${{ steps.detect.outputs.version }}
       url:         ${{ steps.detect.outputs.url }}
       sha256:      ${{ steps.detect.outputs.sha256 }}
+      size:        ${{ steps.detect.outputs.size }}
 
     steps:
       - uses: actions/checkout@v4
@@ -34,6 +35,9 @@ jobs:
           if [ -n "$FORCE" ]; then
             VERSION="$FORCE"
             URL="https://proton.me/download/authenticator/linux/ProtonAuthenticator-${VERSION}.x86_64.rpm"
+            # Fetch size via HEAD request
+            SIZE=$(curl -fsI "$URL" | grep -i content-length | awk '{print $2}' | tr -d '\r')
+            [ -z "$SIZE" ] && SIZE=0
           else
             eval "$(python3 scripts/check-version.py)"
             if [ -z "$VERSION" ]; then
@@ -51,17 +55,19 @@ jobs:
             echo "Already up to date."
             echo "new_version=false" >> "$GITHUB_OUTPUT"
           else
-            echo "New version found: $VERSION"
+            echo "Downloading $URL to compute sha256..."
             curl -fsSL -o /tmp/ProtonAuthenticator.rpm "$URL"
             SHA256=$(sha256sum /tmp/ProtonAuthenticator.rpm | awk '{print $1}')
+            ACTUAL_SIZE=$(wc -c < /tmp/ProtonAuthenticator.rpm)
 
-            echo "new_version=true"  >> "$GITHUB_OUTPUT"
-            echo "version=$VERSION"  >> "$GITHUB_OUTPUT"
-            echo "url=$URL"          >> "$GITHUB_OUTPUT"
-            echo "sha256=$SHA256"    >> "$GITHUB_OUTPUT"
+            echo "new_version=true"        >> "$GITHUB_OUTPUT"
+            echo "version=$VERSION"        >> "$GITHUB_OUTPUT"
+            echo "url=$URL"               >> "$GITHUB_OUTPUT"
+            echo "sha256=$SHA256"         >> "$GITHUB_OUTPUT"
+            echo "size=$ACTUAL_SIZE"      >> "$GITHUB_OUTPUT"
           fi
 
-  # ── 2. Update manifest, build Flatpak, publish release ───────────────────
+  # ── 2. Update manifest, build Flatpak, publish GitHub Release ────────────
   build:
     name: Build and publish
     needs: check
@@ -76,11 +82,20 @@ jobs:
           VERSION: ${{ needs.check.outputs.version }}
           URL:     ${{ needs.check.outputs.url }}
           SHA256:  ${{ needs.check.outputs.sha256 }}
+          SIZE:    ${{ needs.check.outputs.size }}
         run: |
+          # Update extra-data fields
           sed -i "s|url: https://proton\.me/download/authenticator/linux/.*\.rpm|url: ${URL}|" \
             me.proton.Authenticator.yml
           sed -i "s|sha256: [a-f0-9]\{64\}|sha256: ${SHA256}|" \
             me.proton.Authenticator.yml
+          sed -i "s|size: [0-9]\+|size: ${SIZE}|" \
+            me.proton.Authenticator.yml
+
+          # Update release entry in metainfo (date is approximate; edit manually if needed)
+          TODAY=$(date -u +%Y-%m-%d)
+          sed -i "s|<release version=\"[^\"]*\" date=\"[^\"]*\">|<release version=\"${VERSION%-*}\" date=\"${TODAY}\">|" \
+            me.proton.Authenticator.metainfo.xml
 
       - name: Build Flatpak bundle
         uses: flatpak/flatpak-github-actions/flatpak-builder@v6
@@ -89,11 +104,11 @@ jobs:
           manifest-path: me.proton.Authenticator.yml
           cache-key: flatpak-builder-${{ github.sha }}
 
-      - name: Commit manifest update
+      - name: Commit manifest and metainfo updates
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add me.proton.Authenticator.yml
+          git add me.proton.Authenticator.yml me.proton.Authenticator.metainfo.xml
           git commit -m "chore: update to Proton Authenticator ${{ needs.check.outputs.version }} [skip ci]"
           git push
 
@@ -107,15 +122,15 @@ jobs:
 
             ## Install
 
+            Download the `.flatpak` bundle below and run:
+
             ```bash
             flatpak install ProtonAuthenticator-${{ needs.check.outputs.version }}.flatpak
-            ```
-
-            Or run directly:
-
-            ```bash
             flatpak run me.proton.Authenticator
             ```
+
+            > **Note:** The binary is not bundled here — it is downloaded directly from
+            > Proton's servers and verified against its sha256 checksum when you install.
 
             ---
             Source: ${{ needs.check.outputs.url }}
