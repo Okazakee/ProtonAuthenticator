@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Detect the latest Proton Authenticator version from the download page.
+"""Detect the latest Proton Authenticator RPM from the official version JSON.
+
+API: https://proton.me/download/authenticator/linux/version.json
 
 Outputs shell-eval-able lines to stdout:
   VERSION=1.1.4-1
@@ -9,51 +11,64 @@ Outputs shell-eval-able lines to stdout:
 Exits with code 1 if detection fails.
 """
 
+import json
 import re
 import sys
 import urllib.request
 
-DOWNLOAD_PAGE = "https://proton.me/download/authenticator"
-BASE_URL = "https://proton.me/download/authenticator/linux"
-VERSION_RE = re.compile(r'ProtonAuthenticator-([\d]+\.[\d]+\.[\d]+-[\d]+)\.x86_64\.rpm')
+VERSION_JSON = "https://proton.me/download/authenticator/linux/version.json"
+RPM_IDENTIFIER = ".rpm"
+VERSION_RE = re.compile(r'ProtonAuthenticator-([\d.]+-\d+)\.x86_64\.rpm')
 
 
-def fetch(url: str) -> str:
+def fetch_json(url: str) -> dict:
     req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
     with urllib.request.urlopen(req, timeout=30) as r:
-        return r.read().decode("utf-8", errors="replace")
+        return json.load(r)
 
 
-def get_remote_size(url: str) -> int | None:
-    """Return Content-Length of the URL via a HEAD request, or None."""
+def get_remote_size(url: str) -> int:
     req = urllib.request.Request(url, method="HEAD", headers={"User-Agent": "Mozilla/5.0"})
-    try:
-        with urllib.request.urlopen(req, timeout=30) as r:
-            length = r.headers.get("Content-Length")
-            return int(length) if length else None
-    except Exception:
-        return None
+    with urllib.request.urlopen(req, timeout=30) as r:
+        length = r.headers.get("Content-Length")
+        return int(length) if length else 0
+
+
+def find_latest_rpm(releases: list) -> tuple[str, str] | tuple[None, None]:
+    """Return (version, url) for the latest stable RPM release."""
+    for release in releases:
+        if release.get("CategoryName") != "Stable":
+            continue
+        for f in release.get("File", []):
+            if RPM_IDENTIFIER in f.get("Identifier", ""):
+                url = f["Url"]
+                m = VERSION_RE.search(url)
+                if m:
+                    return m.group(1), url
+    return None, None
 
 
 def main() -> None:
     try:
-        html = fetch(DOWNLOAD_PAGE)
+        data = fetch_json(VERSION_JSON)
     except Exception as e:
-        print(f"Error fetching download page: {e}", file=sys.stderr)
+        print(f"Error fetching version JSON: {e}", file=sys.stderr)
         sys.exit(1)
 
-    matches = VERSION_RE.findall(html)
-    if not matches:
-        print("No RPM link found on the Proton Authenticator download page.", file=sys.stderr)
-        print(f"Check manually: {DOWNLOAD_PAGE}", file=sys.stderr)
+    releases = data.get("Releases", [])
+    if not releases:
+        print("Empty releases list in version JSON.", file=sys.stderr)
         sys.exit(1)
 
-    version = matches[0]
-    url = f"{BASE_URL}/ProtonAuthenticator-{version}.x86_64.rpm"
+    version, url = find_latest_rpm(releases)
+    if not version:
+        print("No stable RPM release found in version JSON.", file=sys.stderr)
+        sys.exit(1)
 
-    size = get_remote_size(url)
-    if size is None:
-        print(f"Warning: could not determine file size for {url}", file=sys.stderr)
+    try:
+        size = get_remote_size(url)
+    except Exception as e:
+        print(f"Warning: could not determine file size: {e}", file=sys.stderr)
         size = 0
 
     print(f"VERSION={version}")
